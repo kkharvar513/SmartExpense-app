@@ -1,12 +1,11 @@
-// State
+// JS Logic - Pure Client-Side localStorage
 let currentUser = null;
 let expenses = [];
 let goals = {};
 let charts = {};
 
-// DOM Elements
+// DOM Elements Initialization
 const els = {
-    // Nav & Layout
     sidebar: document.getElementById('sidebar'),
     openSidebar: document.getElementById('openSidebar'),
     closeSidebar: document.getElementById('closeSidebar'),
@@ -15,27 +14,22 @@ const els = {
     themeToggle: document.getElementById('themeToggle'),
     currencySelector: document.getElementById('currencySelector'),
     
-    // Auth
     loginForm: document.getElementById('loginForm'),
     signupForm: document.getElementById('signupForm'),
     
-    // Header
     userName: document.getElementById('userName'),
     currentDate: document.getElementById('currentDate'),
     
-    // Summary
     totalSpent: document.getElementById('totalSpent'),
     budgetLeft: document.getElementById('budgetLeft'),
     monthlyBudgetDesc: document.getElementById('monthlyBudgetDesc'),
     dailyAverage: document.getElementById('dailyAverage'),
     daysPassed: document.getElementById('daysPassed'),
     
-    // Transactions Table
     txTableBody: document.getElementById('txTableBody'),
     noDataMsg: document.getElementById('noDataMsg'),
     searchTransactions: document.getElementById('searchTransactions'),
     
-    // Expense Modal
     addExpenseBtn: document.getElementById('addExpenseBtn'),
     expenseModal: document.getElementById('expenseModal'),
     closeExpenseModal: document.getElementById('closeExpenseModal'),
@@ -43,7 +37,6 @@ const els = {
     expSplitToggle: document.getElementById('expSplit'),
     splitGroup: document.getElementById('splitGroup'),
     
-    // Goals
     goalsForm: document.getElementById('goalsForm'),
     inputMonthlyBudget: document.getElementById('inputMonthlyBudget'),
     inputSavingsTarget: document.getElementById('inputSavingsTarget'),
@@ -51,19 +44,18 @@ const els = {
     progSpent: document.getElementById('progSpent'),
     progLimit: document.getElementById('progLimit'),
     
-    // Insights
     insightAlert: document.getElementById('insightAlert'),
     insightText: document.getElementById('insightText'),
-    
-    // Split
-    splitList: document.getElementById('splitList')
+    splitList: document.getElementById('splitList'),
+    mainDashboardView: document.getElementById('mainDashboardView')
 };
 
-// --- Utilities ---
+// Utilities
 const getCurrency = () => currentUser?.currency || '₹';
 const formatMoney = (amount) => `${getCurrency()}${parseFloat(amount).toFixed(2)}`;
 const showToast = (msg, type='success') => {
     const container = document.getElementById('toast-container');
+    if(!container) return;
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-circle-exclamation'}"></i> ${msg}`;
@@ -71,88 +63,111 @@ const showToast = (msg, type='success') => {
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
 };
+
 function togglePassword(id) {
     const input = document.getElementById(id);
     if(input.type === 'password') input.type = 'text'; else input.type = 'password';
 }
 
-// --- App Initialization ---
-async function init() {
-    // Check if on dashbaord
-    if(!els.userName) return; 
+// Database / Storage abstraction
+const DB = {
+    getUsers: () => JSON.parse(localStorage.getItem('ss_users')) || {},
+    setUsers: (users) => localStorage.setItem('ss_users', JSON.stringify(users)),
+    getExpenses: (email) => JSON.parse(localStorage.getItem(`ss_exps_${email}`)) || [],
+    setExpenses: (email, exps) => localStorage.setItem(`ss_exps_${email}`, JSON.stringify(exps)),
+    getGoals: (email) => JSON.parse(localStorage.getItem(`ss_goals_${email}`)) || { monthly_budget: 0, savings_target: 0 },
+    setGoals: (email, g) => localStorage.setItem(`ss_goals_${email}`, JSON.stringify(g))
+};
+
+// Auth Guard
+function initAuth() {
+    const sessionEmail = sessionStorage.getItem('currentUserEmail');
+    const isDashboard = window.location.pathname.includes('dashboard');
     
-    // Setup date
-    const today = new Date();
-    els.currentDate.textContent = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-    els.daysPassed.textContent = today.getDate();
+    if(isDashboard && !sessionEmail) {
+        window.location.href = 'login.html';
+        return false;
+    }
+    if(!isDashboard && sessionEmail) {
+        if(window.location.pathname.includes('login') || window.location.pathname.includes('signup') || window.location.pathname.endsWith('/') || window.location.pathname.includes('index')) {
+            window.location.href = 'dashboard.html';
+            return false;
+        }
+    }
     
-    // Fetch data
-    await fetchUser();
-    await fetchGoals();
-    await fetchExpenses();
-    
-    setupEventListeners();
-    updateUI();
+    if(isDashboard) {
+        const users = DB.getUsers();
+        currentUser = users[sessionEmail];
+        currentUser.email = sessionEmail;
+        
+        if(els.mainDashboardView) els.mainDashboardView.style.display = 'flex';
+        
+        if(currentUser.theme === 'dark') document.body.classList.add('dark-theme');
+        if(els.currencySelector) els.currencySelector.value = currentUser.currency;
+        if(els.userName) els.userName.textContent = currentUser.name.split(' ')[0];
+        
+        // Load data
+        goals = DB.getGoals(sessionEmail);
+        expenses = DB.getExpenses(sessionEmail);
+        expenses.sort((a,b) => new Date(b.date) - new Date(a.date));
+        
+        const today = new Date();
+        if(els.currentDate) els.currentDate.textContent = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        if(els.daysPassed) els.daysPassed.textContent = today.getDate();
+        if(els.inputMonthlyBudget) els.inputMonthlyBudget.value = goals.monthly_budget || '';
+        if(els.inputSavingsTarget) els.inputSavingsTarget.value = goals.savings_target || '';
+        
+        updateUI();
+    }
+    return true;
+}
+
+window.logout = function() {
+    sessionStorage.removeItem('currentUserEmail');
+    window.location.href = 'index.html';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    init();
+    if(!initAuth()) return;
     
-    // Auth listeners
+    // Auth Forms
     if(els.loginForm) {
-        els.loginForm.addEventListener('submit', async (e) => {
+        els.loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const res = await fetch('/login', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({email: e.target.email.value, password: e.target.password.value})
-            });
-            const data = await res.json();
-            if(data.success) window.location.href = '/dashboard';
-            else showToast(data.message || 'Login failed', 'error');
+            const users = DB.getUsers();
+            const email = e.target.email.value;
+            const pwd = e.target.password.value;
+            if(users[email] && users[email].password === pwd) {
+                sessionStorage.setItem('currentUserEmail', email);
+                window.location.href = 'dashboard.html';
+            } else {
+                showToast('Invalid credentials', 'error');
+            }
         });
     }
     if(els.signupForm) {
-        els.signupForm.addEventListener('submit', async (e) => {
+        els.signupForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const res = await fetch('/signup', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({email: e.target.email.value, password: e.target.password.value, name: e.target.name.value})
-            });
-            const data = await res.json();
-            if(data.success) window.location.href = '/dashboard';
-            else showToast(data.message || 'Signup failed', 'error');
+            const users = DB.getUsers();
+            const email = e.target.email.value;
+            if(users[email]) return showToast('Email already exists', 'error');
+            
+            users[email] = {
+                name: e.target.name.value,
+                password: e.target.password.value,
+                theme: 'light',
+                currency: '₹'
+            };
+            DB.setUsers(users);
+            sessionStorage.setItem('currentUserEmail', email);
+            window.location.href = 'dashboard.html';
         });
     }
+    
+    if(els.sidebar) setupDashboardListeners();
 });
 
-// --- API Calls ---
-async function fetchUser() {
-    const res = await fetch('/api/user');
-    if(res.ok) {
-        currentUser = await res.json();
-        els.userName.textContent = currentUser.name.split(' ')[0];
-        if(currentUser.theme === 'dark') document.body.classList.add('dark-theme');
-        if(els.currencySelector) els.currencySelector.value = currentUser.currency;
-    } else {
-        window.location.href = '/login';
-    }
-}
-
-async function fetchExpenses() {
-    const res = await fetch('/api/expenses');
-    expenses = await res.json();
-    // sort new to old
-    expenses.sort((a,b) => new Date(b.date) - new Date(a.date));
-}
-
-async function fetchGoals() {
-    const res = await fetch('/api/goals');
-    goals = await res.json();
-    els.inputMonthlyBudget.value = goals.monthly_budget || '';
-    els.inputSavingsTarget.value = goals.savings_target || '';
-}
-
-// --- Updates & Rendering ---
+// UI Rendering
 function updateUI() {
     renderSummary();
     renderTransactionsTable();
@@ -164,7 +179,6 @@ function updateUI() {
 function renderSummary() {
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
-    
     const monthlyExpenses = expenses.filter(e => {
         const d = new Date(e.date); return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
@@ -178,10 +192,8 @@ function renderSummary() {
         els.budgetLeft.textContent = formatMoney(left);
         if(left < 0) {
             els.budgetLeft.classList.add('text-danger');
-            showToast('You have exceeded your monthly budget limit!', 'error');
         } else els.budgetLeft.classList.remove('text-danger');
         
-        // Progress bar
         els.progSpent.textContent = `Spent: ${formatMoney(total)}`;
         els.progLimit.textContent = `Limit: ${formatMoney(goals.monthly_budget)}`;
         const perc = Math.min((total / goals.monthly_budget) * 100, 100);
@@ -230,13 +242,13 @@ function renderSplitBills() {
         const names = e.split_with.split(',').map(n => n.trim()).filter(n=>n);
         const perPerson = formatMoney(e.amount / (names.length + 1));
         els.splitList.innerHTML += `
-            <div class="split-card">
+            <div class="split-card card">
                 <div>
                     <h4>${e.description} (${e.date})</h4>
                     <p class="text-sm text-muted">Total: ${formatMoney(e.amount)} • Split among ${names.length+1} people</p>
                     <p class="text-sm mt-2"><strong>${perPerson}</strong> each (You, ${names.join(', ')})</p>
                 </div>
-                <button class="btn btn-outline btn-sm" onclick="showToast('Reminder sent!')">Remind</button>
+                <button class="btn btn-outline btn-sm" onclick="showToast('Reminder marked sent!')">Remind</button>
             </div>
         `;
     });
@@ -249,44 +261,34 @@ function generateInsights() {
     const catTotals = {};
     monthlyExpenses.forEach(e => catTotals[e.category] = (catTotals[e.category] || 0) + e.amount);
     
-    let maxCat = '';
-    let maxAmt = 0;
+    let maxCat = ''; let maxAmt = 0;
     for(const [c, a] of Object.entries(catTotals)) {
         if(a > maxAmt) { maxAmt = a; maxCat = c; }
     }
-    
     if(maxCat) {
         els.insightAlert.style.display = 'flex';
         els.insightText.innerHTML = `<strong>Insight:</strong> Your highest spending category this month is <strong>${maxCat}</strong> (${formatMoney(maxAmt)}).`;
     }
 }
 
-// --- Chart Generation ---
 function updateCharts() {
-    // Colors based on css variables
     const getVar = (name) => getComputedStyle(document.body).getPropertyValue(name).trim();
     const bgColors = [getVar('--chart-1'), getVar('--chart-2'), getVar('--chart-3'), getVar('--chart-4'), getVar('--chart-5'), getVar('--primary'), getVar('--success'), getVar('--danger')];
     
-    // Process category data for current month
     const currentMonth = new Date().getMonth();
     const monthlyExpenses = expenses.filter(e => new Date(e.date).getMonth() === currentMonth);
     const catMap = {};
     monthlyExpenses.forEach(e => catMap[e.category] = (catMap[e.category] || 0) + e.amount);
     
-    // 1. Dashboard Pie Chart
-    const ctx1 = document.getElementById('categoryPieChart');
-    if(ctx1 && Object.keys(catMap).length > 0) {
+    if(document.getElementById('categoryPieChart') && Object.keys(catMap).length > 0) {
         if(charts.pie) charts.pie.destroy();
-        charts.pie = new Chart(ctx1, {
-            type: 'doughnut',
-            data: { labels: Object.keys(catMap), datasets: [{ data: Object.values(catMap), backgroundColor: bgColors, borderWidth: 0 }] },
+        charts.pie = new Chart(document.getElementById('categoryPieChart'), {
+            type: 'doughnut', data: { labels: Object.keys(catMap), datasets: [{ data: Object.values(catMap), backgroundColor: bgColors, borderWidth: 0 }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } }, cutout: '70%'}
         });
     }
 
-    // Process Analytics Data (Last 6 Months Trend)
-    const ctxTrend = document.getElementById('trendLineChart');
-    if(ctxTrend) {
+    if(document.getElementById('trendLineChart')) {
         const trendData = {};
         for(let i=5; i>=0; i--) {
             const d = new Date(); d.setMonth(d.getMonth() - i);
@@ -297,44 +299,24 @@ function updateCharts() {
             const m = d.toLocaleString('default', { month: 'short' });
             if(trendData[m] !== undefined) trendData[m] += e.amount;
         });
-        
         if(charts.trend) charts.trend.destroy();
-        charts.trend = new Chart(ctxTrend, {
-            type: 'line',
-            data: { 
-                labels: Object.keys(trendData), 
-                datasets: [{ 
-                    label: 'Spent Amount', data: Object.values(trendData), 
-                    borderColor: getVar('--primary'), backgroundColor: getVar('--primary-light'), 
-                    fill: true, tension: 0.4 
-                }] 
-            },
+        charts.trend = new Chart(document.getElementById('trendLineChart'), {
+            type: 'line', data: { labels: Object.keys(trendData), datasets: [{ label: 'Spent', data: Object.values(trendData), borderColor: getVar('--primary'), backgroundColor: getVar('--primary-light'), fill: true, tension: 0.4 }] },
             options: { responsive: true, maintainAspectRatio: false }
         });
     }
 
-    // Secondary Analytics Charts
-    const ctxA1 = document.getElementById('analyticsPieChart');
-    if(ctxA1 && Object.keys(catMap).length > 0) {
+    if(document.getElementById('analyticsPieChart') && Object.keys(catMap).length > 0) {
         if(charts.a1) charts.a1.destroy();
-        charts.a1 = new Chart(ctxA1, {
-            type: 'pie', data: { labels: Object.keys(catMap), datasets: [{ data: Object.values(catMap), backgroundColor: bgColors, borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false }
-        });
+        charts.a1 = new Chart(document.getElementById('analyticsPieChart'), { type: 'pie', data: { labels: Object.keys(catMap), datasets: [{ data: Object.values(catMap), backgroundColor: bgColors, borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false } });
     }
-    const ctxA2 = document.getElementById('analyticsBarChart');
-    if(ctxA2 && Object.keys(catMap).length > 0) {
+    if(document.getElementById('analyticsBarChart') && Object.keys(catMap).length > 0) {
         if(charts.a2) charts.a2.destroy();
-        charts.a2 = new Chart(ctxA2, {
-            type: 'bar', data: { labels: Object.keys(catMap), datasets: [{ label: 'Spending', data: Object.values(catMap), backgroundColor: bgColors }] }, options: { responsive: true, maintainAspectRatio: false }
-        });
+        charts.a2 = new Chart(document.getElementById('analyticsBarChart'), { type: 'bar', data: { labels: Object.keys(catMap), datasets: [{ label: 'Spending', data: Object.values(catMap), backgroundColor: bgColors }] }, options: { responsive: true, maintainAspectRatio: false } });
     }
 }
 
-// --- Action Listeners ---
-function setupEventListeners() {
-    if(!els.sidebar) return;
-
-    // View Switching
+function setupDashboardListeners() {
     els.navItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
@@ -343,31 +325,33 @@ function setupEventListeners() {
             els.viewSections.forEach(v => v.classList.remove('active'));
             document.getElementById(`view-${item.dataset.view}`).classList.add('active');
             if(window.innerWidth <= 768) els.sidebar.classList.remove('open');
-            updateCharts(); // redraw for container size fixes
+            updateCharts(); 
         });
     });
 
-    // Mobile Sidebar
     els.openSidebar.addEventListener('click', () => els.sidebar.classList.add('open'));
     els.closeSidebar.addEventListener('click', () => els.sidebar.classList.remove('open'));
 
-    // Theme & Currency
-    els.themeToggle.addEventListener('click', async (e) => {
+    els.themeToggle.addEventListener('click', (e) => {
         e.preventDefault();
         const body = document.body;
         body.classList.toggle('dark-theme');
-        const isDark = body.classList.contains('dark-theme');
-        await fetch('/api/user', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({theme: isDark ? 'dark' : 'light'}) });
-        updateCharts(); // Refresh chart colors
+        currentUser.theme = body.classList.contains('dark-theme') ? 'dark' : 'light';
+        const users = DB.getUsers();
+        users[currentUser.email].theme = currentUser.theme;
+        DB.setUsers(users);
+        updateCharts();
     });
 
-    els.currencySelector.addEventListener('change', async (e) => {
+    els.currencySelector.addEventListener('change', (e) => {
         currentUser.currency = e.target.value;
-        await fetch('/api/user', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({currency: currentUser.currency}) });
+        const users = DB.getUsers();
+        users[currentUser.email].currency = currentUser.currency;
+        DB.setUsers(users);
+        document.getElementById('modalCurrency').textContent = currentUser.currency;
         updateUI();
     });
 
-    // Expense Form Modal
     els.addExpenseBtn.addEventListener('click', () => {
         els.expenseForm.reset();
         document.getElementById('expId').value = '';
@@ -375,15 +359,17 @@ function setupEventListeners() {
         document.getElementById('modalTitle').textContent = 'Add Expense';
         els.expenseModal.classList.add('active');
         document.getElementById('expDate').valueAsDate = new Date();
+        document.getElementById('modalCurrency').textContent = currentUser.currency;
     });
     els.closeExpenseModal.addEventListener('click', () => els.expenseModal.classList.remove('active'));
     els.expSplitToggle.addEventListener('change', (e) => els.splitGroup.style.display = e.target.checked ? 'block' : 'none');
 
-    els.expenseForm.addEventListener('submit', async (e) => {
+    els.expenseForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        const id = document.getElementById('expId').value;
+        const id = document.getElementById('expId').value || new Date().getTime().toString();
         const payload = {
-            amount: document.getElementById('expAmount').value,
+            id: id,
+            amount: parseFloat(document.getElementById('expAmount').value),
             category: document.getElementById('expCategory').value,
             date: document.getElementById('expDate').value,
             description: document.getElementById('expDescription').value,
@@ -391,46 +377,38 @@ function setupEventListeners() {
             split_with: document.getElementById('expSplit').checked ? document.getElementById('expSplitWith').value : ''
         };
         
-        const url = id ? `/api/expenses/${id}` : '/api/expenses';
-        const method = id ? 'PUT' : 'POST';
-        
-        const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-        if(res.ok) {
-            await fetchExpenses();
-            updateUI();
-            els.expenseModal.classList.remove('active');
-            showToast(id ? 'Expense updated' : 'Expense added');
+        if(!document.getElementById('expId').value) expenses.push(payload);
+        else {
+            const idx = expenses.findIndex(ex => ex.id === id);
+            expenses[idx] = payload;
         }
+        
+        expenses.sort((a,b) => new Date(b.date) - new Date(a.date));
+        DB.setExpenses(currentUser.email, expenses);
+        
+        updateUI();
+        els.expenseModal.classList.remove('active');
+        showToast(document.getElementById('expId').value ? 'Expense updated' : 'Expense added');
     });
 
-    // Search
     els.searchTransactions.addEventListener('input', (e) => renderTransactionsTable(e.target.value));
 
-    // Goals Form
-    els.goalsForm.addEventListener('submit', async (e) => {
+    els.goalsForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        const mb = els.inputMonthlyBudget.value;
-        const st = els.inputSavingsTarget.value;
-        const res = await fetch('/api/goals', {
-            method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({monthly_budget: mb, savings_target: st})
-        });
-        if(res.ok) {
-            goals.monthly_budget = parseFloat(mb); goals.savings_target = parseFloat(st);
-            updateUI();
-            showToast('Goals updated successfully');
-        }
+        goals.monthly_budget = parseFloat(els.inputMonthlyBudget.value);
+        goals.savings_target = parseFloat(els.inputSavingsTarget.value);
+        DB.setGoals(currentUser.email, goals);
+        updateUI();
+        showToast('Goals updated successfully');
     });
     
-    // Export UI
     document.getElementById('exportBtn').addEventListener('click', () => document.getElementById('exportModal').classList.add('active'));
 }
 
-function closeExportModal() {
+window.closeExportModal = function() {
     document.getElementById('exportModal').classList.remove('active');
 }
 
-// Global scope fns for inline handlers
 window.editExpense = function(id) {
     const exp = expenses.find(e => e.id === id);
     if(exp) {
@@ -447,60 +425,38 @@ window.editExpense = function(id) {
         } else els.splitGroup.style.display = 'none';
         
         document.getElementById('modalTitle').textContent = 'Edit Expense';
+        document.getElementById('modalCurrency').textContent = currentUser.currency;
         els.expenseModal.classList.add('active');
     }
 }
 
-window.deleteExpense = async function(id) {
+window.deleteExpense = function(id) {
     if(confirm('Are you sure you want to delete this expense?')) {
-        const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
-        if(res.ok) {
-            await fetchExpenses();
-            updateUI();
-            showToast('Expense deleted');
-        }
+        expenses = expenses.filter(e => e.id !== id);
+        DB.setExpenses(currentUser.email, expenses);
+        updateUI();
+        showToast('Expense deleted');
     }
 }
 
-// Client-side Export Logic
 window.exportData = function(type) {
     if(expenses.length === 0) return showToast('No data to export', 'error');
-    closeExportModal();
-    
-    // Prepare Data Array
+    window.closeExportModal();
     let csvData = [["Date", "Category", "Description", "Amount", "Recurring", "Split With"]];
     expenses.forEach(e => csvData.push([e.date, e.category, e.description, formatMoney(e.amount), e.is_recurring?"Yes":"No", e.split_with]));
     
     if(type === 'csv') {
-        let csvContent = "data:text/csv;charset=utf-8," + csvData.map(e => e.join(",")).join("\n");
-        let encodedUri = encodeURI(csvContent);
-        let link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "SpendSmart_Expenses.csv");
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
+        let sc = "data:text/csv;charset=utf-8," + csvData.map(e => e.join(",")).join("\n");
+        let a = document.createElement("a"); a.href = encodeURI(sc); a.download = "SpendSmart.csv"; document.body.appendChild(a); a.click(); a.remove();
         showToast('CSV downloaded');
-    } 
-    else if(type === 'excel') {
-        let ws = XLSX.utils.aoa_to_sheet(csvData);
-        let wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Expenses");
-        XLSX.writeFile(wb, "SpendSmart_Expenses.xlsx");
+    } else if(type === 'excel') {
+        let ws = XLSX.utils.aoa_to_sheet(csvData); let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Expenses"); XLSX.writeFile(wb, "SpendSmart.xlsx");
         showToast('Excel downloaded');
-    }
-    else if(type === 'pdf') {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+    } else if(type === 'pdf') {
+        const { jsPDF } = window.jspdf; const doc = new jsPDF();
         doc.text("SpendSmart Expenses Report", 14, 15);
-        doc.autoTable({
-            head: [csvData[0]],
-            body: csvData.slice(1),
-            startY: 20,
-            theme: 'grid',
-            styles: { fontSize: 10 }
-        });
-        doc.save("SpendSmart_Expenses.pdf");
+        doc.autoTable({ head: [csvData[0]], body: csvData.slice(1), startY: 20, theme: 'grid' });
+        doc.save("SpendSmart.pdf");
         showToast('PDF downloaded');
     }
 }

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpendSmart - Smart Expense Tracking</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="light-theme">
+    <div id="toast-container" class="toast-container"></div>
+    
+    <div class="landing-page">
+        <!-- Landing Navbar -->
+        <nav class="landing-nav">
+            <div class="logo-wrapper-nav">
+                <div class="logo-icon-small"><i class="fa-solid fa-wallet"></i></div>
+                <span class="logo-text">SpendSmart</span>
+            </div>
+            <div class="nav-links">
+                <a href="#features" class="text-muted d-none-mobile">Features</a>
+                <a href="login.html" class="btn btn-outline">Log In</a>
+                <a href="signup.html" class="btn btn-primary shadow-sm">Get Started</a>
+            </div>
+        </nav>
+
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-content">
+                <div class="badge fade-in-up">🌟 The #1 Personal Finance App</div>
+                <h1 class="fade-in-up delay-1">Master your money.<br><span class="text-gradient">Achieve your goals.</span></h1>
+                <p class="hero-subtitle fade-in-up delay-2">SpendSmart is the most beautiful and intelligent way to track your expenses, split bills, and grow your savings. No complicated spreadsheets needed.</p>
+                <div class="hero-actions fade-in-up delay-3">
+                    <a href="signup.html" class="btn btn-primary btn-lg shadow-md">Start for free <i class="fa-solid fa-arrow-right"></i></a>
+                    <a href="#features" class="btn btn-secondary btn-lg d-none-mobile">Explore Features</a>
+                </div>
+                
+                <div class="stats-row fade-in-up delay-4">
+                    <div class="stat"><span class="h3">100%</span><span class="p text-muted">Free to use</span></div>
+                    <div class="stat"><span class="h3">Smart</span><span class="p text-muted">Insights</span></div>
+                    <div class="stat"><span class="h3">Secure</span><span class="p text-muted">Local Storage</span></div>
+                </div>
+            </div>
+            
+            <div class="hero-visual fade-in-up delay-2">
+                <div class="blob blob-1"></div>
+                <div class="blob blob-2"></div>
+                <div class="mockup-card float-animation">
+                    <div class="mockup-header flex-between mb-3">
+                        <div>
+                            <p class="text-sm text-muted">Total Balance</p>
+                            <h2 style="font-size:2rem;">$12,450.00</h2>
+                        </div>
+                        <div class="mockup-icon"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                    </div>
+                    <div class="mockup-chart mt-4">
+                        <div class="mockup-bar" style="height: 40%;"></div>
+                        <div class="mockup-bar" style="height: 70%;"></div>
+                        <div class="mockup-bar" style="height: 50%;"></div>
+                        <div class="mockup-bar" style="height: 90%; background: var(--primary);"></div>
+                        <div class="mockup-bar" style="height: 60%;"></div>
+                    </div>
+                </div>
+                
+                <div class="floating-badge float-animation-alt badge-1">
+                    <div class="icon-circle text-danger bg-danger-light"><i class="fa-solid fa-pizza-slice"></i></div>
+                    <div>
+                        <p class="text-sm" style="font-weight: 600;">Food & Dining</p>
+                        <p class="text-xs text-muted" style="font-size: 0.8rem;">-$45.00</p>
+                    </div>
+                </div>
+                
+                <div class="floating-badge float-animation badge-2">
+                    <div class="icon-circle text-success bg-success-light"><i class="fa-solid fa-bullseye"></i></div>
+                    <div>
+                        <p class="text-sm" style="font-weight: 600;">Goal: Vacation</p>
+                        <p class="text-xs text-muted" style="font-size: 0.8rem;">85% completed</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section id="features" class="features-section">
+            <div class="section-header text-center">
+                <h2>Everything you need to <span class="text-gradient">succeed</span></h2>
+                <p class="text-muted mt-2" style="font-size: 1.1rem;">Powerful tools packaged in a beautifully simple interface.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card card">
+                    <div class="f-icon" style="background:var(--chart-1-light); color:var(--chart-1)"><i class="fa-solid fa-chart-pie"></i></div>
+                    <h3>Visual Analytics</h3>
+                    <p class="text-muted text-sm" style="line-height: 1.5;">Understand your spending habits with stunning interactive charts and category breakdowns.</p>
+                </div>
+                <!-- Other Features... -->
+                <div class="feature-card card">
+                    <div class="f-icon" style="background:var(--chart-2-light); color:var(--chart-2)"><i class="fa-solid fa-bullseye"></i></div>
+                    <h3>Financial Goals</h3>
+                    <p class="text-muted text-sm" style="line-height: 1.5;">Set monthly budgets and savings targets. We'll alert you before you overspend.</p>
+                </div>
+                <div class="feature-card card">
+                    <div class="f-icon" style="background:var(--success-light); color:var(--success)"><i class="fa-solid fa-money-bill-transfer"></i></div>
+                    <h3>Split Bills</h3>
+                    <p class="text-muted text-sm" style="line-height: 1.5;">Going out with friends? Easily track who owes what and keep relationships stress-free.</p>
+                </div>
+                <div class="feature-card card">
+                    <div class="f-icon" style="background:var(--warning-light); color:var(--warning)"><i class="fa-solid fa-lightbulb"></i></div>
+                    <h3>Smart Insights</h3>
+                    <p class="text-muted text-sm" style="line-height: 1.5;">Get automated insights about your highest spending categories and monthly trends.</p>
+                </div>
+                <div class="feature-card card">
+                    <div class="f-icon" style="background:var(--chart-4-light); color:var(--chart-4)"><i class="fa-solid fa-coins"></i></div>
+                    <h3>Multi-Currency</h3>
+                    <p class="text-muted text-sm" style="line-height: 1.5;">Support for multiple currencies ($, €, £, ₹) so you can track expenses wherever you are.</p>
+                </div>
+                <div class="feature-card card">
+                    <div class="f-icon" style="background:var(--chart-5-light); color:var(--chart-5)"><i class="fa-solid fa-file-export"></i></div>
+                    <h3>Easy Export</h3>
+                    <p class="text-muted text-sm" style="line-height: 1.5;">Download your data instantly as PDF, Excel, or CSV files for tax season or personal backups.</p>
+                </div>
+            </div>
+        </section>
+
+        <footer style="text-align: center; padding: 2rem; border-top: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.9rem;">
+            <p>&copy; 2026 SpendSmart. All rights reserved.</p>
+        </footer>
+    </div>
+    
+    <script src="js/main.js"></script>
+</body>
+</html>

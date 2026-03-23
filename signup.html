@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - SpendSmart</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="light-theme">
+    <div id="toast-container" class="toast-container"></div>
+
+    <div class="auth-container">
+        <div class="auth-card card">
+            <div class="back-link">
+                <a href="index.html"><i class="fa-solid fa-arrow-left"></i> Home</a>
+            </div>
+            
+            <div class="auth-header">
+                <h2>Create Account</h2>
+                <p>Start tracking your expenses today</p>
+            </div>
+            
+            <form id="signupForm" class="auth-form">
+                <div class="form-group">
+                    <label for="name">Full Name</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fa-regular fa-user"></i>
+                        <input type="text" id="name" name="name" placeholder="John Doe" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fa-regular fa-envelope"></i>
+                        <input type="email" id="email" name="email" placeholder="you@example.com" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" id="password" name="password" placeholder="••••••••" required minlength="6">
+                        <button type="button" class="password-toggle" onclick="togglePassword('password')">
+                            <i class="fa-regular fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block" id="signupBtn">
+                    <span>Sign Up</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </form>
+            
+            <p class="auth-footer">
+                Already have an account? <a href="login.html">Log In</a>
+            </p>
+        </div>
+    </div>
+    <script src="js/main.js"></script>
+</body>
+</html>
