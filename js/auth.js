@@ -1,6 +1,18 @@
 // Auth.js - Supabase Authentication Logic
 // Handles login, signup, forgot password, and auth state
 
+// Get initialized Supabase Client safely
+function getSb() {
+    if (window.supabaseClient) return window.supabaseClient;
+    if (typeof supabase !== 'undefined' && supabase && typeof supabase.createClient === 'function') {
+        const url = typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : 'https://fivnpfqsawuhdrawvaiu.supabase.co';
+        const key = typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdm5wZnFzYXd1aGRyYXd2YWl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4OTExMzYsImV4cCI6MjEwNzQ2NzEzNn0.JvEvE3ExhpeWWXoG9aTebYf2ngtWLXJZVjVLXSenQ08';
+        window.supabaseClient = supabase.createClient(url, key);
+        return window.supabaseClient;
+    }
+    return null;
+}
+
 // Toast notification
 function showToast(msg, type = 'success') {
     const container = document.getElementById('toast-container');
@@ -8,7 +20,7 @@ function showToast(msg, type = 'success') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-circle-exclamation' : 'fa-info-circle';
-    toast.innerHTML = `<i class="fa-solid ${icon}"></i> ${msg}`;
+    toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${msg}</span>`;
     container.appendChild(toast);
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => {
@@ -19,22 +31,24 @@ function showToast(msg, type = 'success') {
 
 function togglePassword(id) {
     const input = document.getElementById(id);
+    if (!input) return;
     const icon = input.parentElement.querySelector('.password-toggle i');
     if (input.type === 'password') {
         input.type = 'text';
-        icon.className = 'fa-regular fa-eye-slash';
+        if (icon) icon.className = 'fa-regular fa-eye-slash';
     } else {
         input.type = 'password';
-        icon.className = 'fa-regular fa-eye';
+        if (icon) icon.className = 'fa-regular fa-eye';
     }
 }
 
 // Check if user is already logged in
 async function checkAuthState() {
+    const sb = getSb();
+    if (!sb) return false;
     try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await sb.auth.getSession();
         if (session) {
-            // User is logged in, redirect to dashboard
             window.location.href = 'dashboard.html';
             return true;
         }
@@ -53,6 +67,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const sb = getSb();
+            if (!sb) {
+                showToast('Authentication service unavailable. Please check your connection.', 'error');
+                return;
+            }
+
             const btn = document.getElementById('loginBtn');
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
@@ -61,13 +81,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             btn.disabled = true;
 
             try {
-                const { data, error } = await supabase.auth.signInWithPassword({
+                const { data, error } = await sb.auth.signInWithPassword({
                     email: email,
                     password: password
                 });
 
                 if (error) {
-                    showToast(error.message || 'Invalid credentials', 'error');
+                    showToast(error.message || 'Invalid email or password', 'error');
                     btn.classList.remove('btn-loading');
                     btn.disabled = false;
                     return;
@@ -76,8 +96,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 showToast('Login successful! Redirecting...', 'success');
                 setTimeout(() => {
                     window.location.href = 'dashboard.html';
-                }, 500);
+                }, 400);
             } catch (err) {
+                console.error('Login error:', err);
                 showToast('Something went wrong. Please try again.', 'error');
                 btn.classList.remove('btn-loading');
                 btn.disabled = false;
@@ -108,13 +129,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             forgotForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const sb = getSb();
+                if (!sb) return;
+
                 const resetEmail = document.getElementById('resetEmail').value.trim();
                 const btn = forgotForm.querySelector('button[type="submit"]');
                 btn.classList.add('btn-loading');
                 btn.disabled = true;
 
                 try {
-                    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+                    const { error } = await sb.auth.resetPasswordForEmail(resetEmail, {
                         redirectTo: window.location.origin + '/login.html'
                     });
 
@@ -138,6 +162,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (signupForm) {
         signupForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const sb = getSb();
+            if (!sb) {
+                showToast('Authentication service unavailable. Please check your connection.', 'error');
+                return;
+            }
+
             const btn = document.getElementById('signupBtn');
             const name = document.getElementById('name').value.trim();
             const email = document.getElementById('email').value.trim();
@@ -153,7 +183,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             try {
                 // Sign up with Supabase Auth
-                const { data, error } = await supabase.auth.signUp({
+                const { data, error } = await sb.auth.signUp({
                     email: email,
                     password: password,
                     options: {
@@ -167,16 +197,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const msg = (error.message || '').toLowerCase();
                     if (msg.includes('already registered') || msg.includes('already exists')) {
                         showToast('Account already exists! Logging you in...', 'info');
-                        const { error: signInErr } = await supabase.auth.signInWithPassword({
+                        const { error: signInErr } = await sb.auth.signInWithPassword({
                             email: email,
                             password: password
                         });
                         if (!signInErr) {
-                            setTimeout(() => { window.location.href = 'dashboard.html'; }, 500);
+                            setTimeout(() => { window.location.href = 'dashboard.html'; }, 400);
                             return;
                         } else {
                             showToast('User already registered. Please go to Log In.', 'error');
-                            setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+                            setTimeout(() => { window.location.href = 'login.html'; }, 1200);
                             return;
                         }
                     }
@@ -188,24 +218,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // Sign in to establish session
                 showToast('Account created! Welcome to SpendSmart.', 'success');
-                const { error: loginErr } = await supabase.auth.signInWithPassword({
+                const { error: loginErr } = await sb.auth.signInWithPassword({
                     email: email,
                     password: password
                 });
 
                 if (!loginErr) {
                     // Update profile now that user is authenticated
-                    await supabase.from('profiles').upsert({
-                        id: data.user.id,
-                        full_name: name,
-                        currency: '₹',
-                        monthly_budget: 35000,
-                        theme: 'light'
-                    }).catch(console.warn);
+                    if (data?.user) {
+                        await sb.from('profiles').upsert({
+                            id: data.user.id,
+                            full_name: name,
+                            currency: '₹',
+                            monthly_budget: 35000,
+                            theme: 'light'
+                        }).catch(console.warn);
+                    }
 
                     setTimeout(() => {
                         window.location.href = 'dashboard.html';
-                    }, 500);
+                    }, 400);
                 } else {
                     setTimeout(() => {
                         window.location.href = 'login.html';

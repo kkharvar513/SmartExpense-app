@@ -66,12 +66,25 @@ function pulseSyncIndicator() {
 // AUTHENTICATION & INITIALIZATION
 // ===================================================================
 
+// Helper to get initialized Supabase Client
+function getSb() {
+    if (window.supabaseClient) return window.supabaseClient;
+    if (typeof supabase !== 'undefined' && supabase && typeof supabase.createClient === 'function') {
+        const url = typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : 'https://fivnpfqsawuhdrawvaiu.supabase.co';
+        const key = typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdm5wZnFzYXd1aGRyYXd2YWl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4OTExMzYsImV4cCI6MjEwNzQ2NzEzNn0.JvEvE3ExhpeWWXoG9aTebYf2ngtWLXJZVjVLXSenQ08';
+        window.supabaseClient = supabase.createClient(url, key);
+        return window.supabaseClient;
+    }
+    return null;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
     initEventListeners();
 
     // Check Supabase session
-    if (!supabase) {
+    const sb = getSb();
+    if (!sb) {
         console.warn('Supabase client not found. Falling back to local demo mode.');
         setupLocalFallbackUser();
         initDashboard();
@@ -79,7 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await sb.auth.getSession();
         if (error || !session) {
             // Not authenticated, redirect to login
             window.location.href = 'login.html';
@@ -89,7 +102,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentUser = session.user;
         
         // Listen to auth changes
-        supabase.auth.onAuthStateChange((event, session) => {
+        sb.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_OUT' || !session) {
                 window.location.href = 'login.html';
             }
@@ -128,7 +141,7 @@ function setupLocalFallbackUser() {
 // Load Profile from Supabase
 async function loadUserProfile() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await sb
             .from('profiles')
             .select('*')
             .eq('id', currentUser.id)
@@ -145,7 +158,7 @@ async function loadUserProfile() {
             // Create default profile if missing
             const fallbackName = currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
             currentProfile.full_name = fallbackName;
-            await supabase.from('profiles').upsert({
+            await sb.from('profiles').upsert({
                 id: currentUser.id,
                 full_name: fallbackName,
                 currency: '₹',
@@ -183,13 +196,13 @@ function updateUserDisplay() {
 
 // Load Transactions from Supabase
 async function loadTransactions() {
-    if (!supabase || currentUser.id === 'local-user') {
+    if (!getSb() || currentUser.id === 'local-user') {
         transactions = JSON.parse(localStorage.getItem('ss_local_transactions')) || [];
         return;
     }
 
     try {
-        const { data, error } = await supabase
+        const { data, error } = await sb
             .from('transactions')
             .select('*')
             .eq('user_id', currentUser.id)
@@ -206,13 +219,13 @@ async function loadTransactions() {
 
 // Load Goals from Supabase
 async function loadGoals() {
-    if (!supabase || currentUser.id === 'local-user') {
+    if (!getSb() || currentUser.id === 'local-user') {
         goals = JSON.parse(localStorage.getItem('ss_local_goals')) || [];
         return;
     }
 
     try {
-        const { data, error } = await supabase
+        const { data, error } = await sb
             .from('goals')
             .select('*')
             .eq('user_id', currentUser.id)
@@ -227,11 +240,11 @@ async function loadGoals() {
 
 // Real-time Subscriptions (Live sync across tabs & devices)
 function setupRealtimeSubscriptions() {
-    if (!supabase || currentUser.id === 'local-user') return;
+    if (!getSb() || currentUser.id === 'local-user') return;
 
     try {
         // Transactions real-time channel
-        supabase
+        getSb()
             .channel('public:transactions:' + currentUser.id)
             .on('postgres_changes', {
                 event: '*',
@@ -256,7 +269,7 @@ function setupRealtimeSubscriptions() {
             .subscribe();
 
         // Goals real-time channel
-        supabase
+        getSb()
             .channel('public:goals:' + currentUser.id)
             .on('postgres_changes', {
                 event: '*',
@@ -278,7 +291,7 @@ function setupRealtimeSubscriptions() {
             .subscribe();
 
         // Profiles real-time channel
-        supabase
+        getSb()
             .channel('public:profiles:' + currentUser.id)
             .on('postgres_changes', {
                 event: 'UPDATE',
@@ -340,8 +353,8 @@ function initEventListeners() {
             updateUserDisplay();
             renderApp();
 
-            if (supabase && currentUser?.id !== 'local-user') {
-                await supabase.from('profiles').update({ currency: currentProfile.currency }).eq('id', currentUser.id);
+            if (getSb() && currentUser?.id !== 'local-user') {
+                await sb.from('profiles').update({ currency: currentProfile.currency }).eq('id', currentUser.id);
             }
             showToast(`Currency changed to ${currentProfile.currency}`);
         });
@@ -351,7 +364,7 @@ function initEventListeners() {
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
-            if (supabase) await supabase.auth.signOut();
+            if (getSb()) await sb.auth.signOut();
             window.location.href = 'login.html';
         });
     }
@@ -486,8 +499,8 @@ function toggleTheme() {
     currentProfile.theme = next;
     updateThemeIcon(next);
 
-    if (supabase && currentUser?.id !== 'local-user') {
-        supabase.from('profiles').update({ theme: next }).eq('id', currentUser.id);
+    if (getSb() && currentUser?.id !== 'local-user') {
+        getSb().from('profiles').update({ theme: next }).eq('id', currentUser.id);
     }
 }
 
@@ -1333,17 +1346,17 @@ async function handleTransactionSubmit(e) {
     };
 
     try {
-        if (supabase && currentUser.id !== 'local-user') {
+        if (getSb() && currentUser.id !== 'local-user') {
             if (id) {
                 // Update
-                const { error } = await supabase.from('transactions').update(txData).eq('id', id);
+                const { error } = await sb.from('transactions').update(txData).eq('id', id);
                 if (error) throw error;
                 const idx = transactions.findIndex(t => t.id === id);
                 if (idx !== -1) transactions[idx] = { ...transactions[idx], ...txData };
                 showToast('Transaction updated successfully!');
             } else {
                 // Insert
-                const { data, error } = await supabase.from('transactions').insert(txData).select().single();
+                const { data, error } = await sb.from('transactions').insert(txData).select().single();
                 if (error) throw error;
                 transactions.unshift(data);
                 showToast(`${type === 'expense' ? 'Expense' : 'Income'} added successfully!`);
@@ -1401,8 +1414,8 @@ async function deleteTransaction(id) {
     if (!confirm('Are you sure you want to delete this transaction?')) return;
 
     try {
-        if (supabase && currentUser.id !== 'local-user') {
-            const { error } = await supabase.from('transactions').delete().eq('id', id);
+        if (getSb() && currentUser.id !== 'local-user') {
+            const { error } = await sb.from('transactions').delete().eq('id', id);
             if (error) throw error;
         }
         transactions = transactions.filter(t => t.id !== id);
@@ -1455,15 +1468,15 @@ async function handleGoalSubmit(e) {
     };
 
     try {
-        if (supabase && currentUser.id !== 'local-user') {
+        if (getSb() && currentUser.id !== 'local-user') {
             if (id) {
-                const { error } = await supabase.from('goals').update(goalData).eq('id', id);
+                const { error } = await sb.from('goals').update(goalData).eq('id', id);
                 if (error) throw error;
                 const idx = goals.findIndex(g => g.id === id);
                 if (idx !== -1) goals[idx] = { ...goals[idx], ...goalData };
                 showToast('Goal updated!');
             } else {
-                const { data, error } = await supabase.from('goals').insert(goalData).select().single();
+                const { data, error } = await sb.from('goals').insert(goalData).select().single();
                 if (error) throw error;
                 goals.push(data);
                 showToast('Savings goal created!');
@@ -1504,8 +1517,8 @@ function editGoal(id) {
 async function deleteGoal(id) {
     if (!confirm('Are you sure you want to remove this goal?')) return;
     try {
-        if (supabase && currentUser.id !== 'local-user') {
-            await supabase.from('goals').delete().eq('id', id);
+        if (getSb() && currentUser.id !== 'local-user') {
+            await sb.from('goals').delete().eq('id', id);
         }
         goals = goals.filter(g => g.id !== id);
         if (currentUser.id === 'local-user') {
@@ -1543,8 +1556,8 @@ async function handleDepositSubmit(e) {
     g.current_amount = newAmt;
 
     try {
-        if (supabase && currentUser.id !== 'local-user') {
-            await supabase.from('goals').update({ current_amount: newAmt }).eq('id', id);
+        if (getSb() && currentUser.id !== 'local-user') {
+            await sb.from('goals').update({ current_amount: newAmt }).eq('id', id);
         } else {
             localStorage.setItem('ss_local_goals', JSON.stringify(goals));
         }
@@ -1599,8 +1612,8 @@ async function handleProfileSubmit(e) {
     currentProfile.monthly_budget = budget;
 
     try {
-        if (supabase && currentUser.id !== 'local-user') {
-            await supabase.from('profiles').update({
+        if (getSb() && currentUser.id !== 'local-user') {
+            await sb.from('profiles').update({
                 full_name: name,
                 currency: curr,
                 monthly_budget: budget
@@ -1622,8 +1635,8 @@ async function handleBudgetSubmit(e) {
     currentProfile.monthly_budget = budget;
 
     try {
-        if (supabase && currentUser.id !== 'local-user') {
-            await supabase.from('profiles').update({ monthly_budget: budget }).eq('id', currentUser.id);
+        if (getSb() && currentUser.id !== 'local-user') {
+            await sb.from('profiles').update({ monthly_budget: budget }).eq('id', currentUser.id);
         }
         renderOverview();
         renderBudgetView();
@@ -1664,10 +1677,10 @@ async function loadSampleData() {
     ];
 
     try {
-        if (supabase && currentUser.id !== 'local-user') {
-            await supabase.from('transactions').insert(sampleTransactions);
-            await supabase.from('goals').insert(sampleGoals);
-            await supabase.from('profiles').update({ monthly_budget: 45000 }).eq('id', currentUser.id);
+        if (getSb() && currentUser.id !== 'local-user') {
+            await sb.from('transactions').insert(sampleTransactions);
+            await sb.from('goals').insert(sampleGoals);
+            await sb.from('profiles').update({ monthly_budget: 45000 }).eq('id', currentUser.id);
             currentProfile.monthly_budget = 45000;
             
             await loadTransactions();
