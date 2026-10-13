@@ -3,260 +3,610 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - SpendSmart</title>
+    <title>SpendSmart - Real-time Finance & Expense Manager</title>
+    <meta name="description" content="Manage your finances, track income and expenses in real-time, set budgets, and achieve savings goals.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
     
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
     
-    <!-- Chart.js & Export-->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Chart.js & Export & Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
     
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="light-theme">
     <div id="toast-container" class="toast-container"></div>
 
-    <div class="dashboard-layout" style="display:none;" id="mainDashboardView">
+    <div class="dashboard-layout" id="mainDashboardView">
+        <!-- Sidebar Navigation -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo-icon"><i class="fa-solid fa-wallet"></i></div>
-                <h2>SpendSmart</h2>
+                <div class="logo-text">
+                    <h2>SpendSmart</h2>
+                    <span class="badge badge-success text-xs" id="realtimeBadge"><i class="fa-solid fa-circle text-xs" style="font-size:0.5rem;"></i> Live</span>
+                </div>
                 <button class="close-sidebar" id="closeSidebar"><i class="fa-solid fa-times"></i></button>
             </div>
+            
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" data-view="overview"><i class="fa-solid fa-house"></i> Overview</a>
+                <a href="#" class="nav-item" data-view="transactions"><i class="fa-solid fa-list-check"></i> Transactions</a>
                 <a href="#" class="nav-item" data-view="analytics"><i class="fa-solid fa-chart-pie"></i> Analytics</a>
-                <a href="#" class="nav-item" data-view="goals"><i class="fa-solid fa-bullseye"></i> Goals & Budgets</a>
+                <a href="#" class="nav-item" data-view="goals"><i class="fa-solid fa-bullseye"></i> Savings Goals</a>
+                <a href="#" class="nav-item" data-view="recurring"><i class="fa-solid fa-arrows-rotate"></i> Subscriptions</a>
                 <a href="#" class="nav-item" data-view="split"><i class="fa-solid fa-money-bill-transfer"></i> Split Bills</a>
+                <a href="#" class="nav-item" data-view="budget"><i class="fa-solid fa-sliders"></i> Budgets</a>
+                
                 <div class="nav-divider"></div>
                 <a href="#" class="nav-item" id="themeToggle"><i class="fa-solid fa-moon"></i> Dark Mode</a>
-                <a href="#" class="nav-item text-danger" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+                <a href="#" class="nav-item" id="profileSettingsBtn"><i class="fa-solid fa-user-gear"></i> Settings</a>
+                <a href="#" class="nav-item text-danger" id="logoutBtn"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
             </nav>
+
+            <div class="sidebar-footer p-3">
+                <div class="user-pill d-flex align-items-center gap-2">
+                    <div class="avatar" id="sidebarAvatar">U</div>
+                    <div class="user-pill-info">
+                        <div class="fw-bold text-sm" id="sidebarUserName">User</div>
+                        <div class="text-xs text-muted" id="sidebarUserEmail">user@example.com</div>
+                    </div>
+                </div>
+            </div>
         </aside>
 
+        <!-- Main Content Area -->
         <main class="main-content">
+            <!-- Top Header -->
             <header class="top-header">
                 <button class="menu-btn" id="openSidebar"><i class="fa-solid fa-bars"></i></button>
+                
                 <div class="header-user">
-                    <h2>Hello, <span id="userName">User</span> 👋</h2>
-                    <p class="text-muted" id="currentDate">Today</p>
+                    <h2>Welcome, <span id="userName">User</span> 👋</h2>
+                    <p class="text-muted" id="currentDate">Real-time Financial Overview</p>
                 </div>
+                
                 <div class="header-actions">
+                    <div class="sync-indicator" id="syncStatusIndicator" title="Real-time Supabase Synchronized">
+                        <span class="status-dot online"></span>
+                        <span class="status-label">Synced</span>
+                    </div>
+
                     <select id="currencySelector" class="form-select currency-select">
                         <option value="₹">₹ INR</option>
                         <option value="$">$ USD</option>
                         <option value="€">€ EUR</option>
                         <option value="£">£ GBP</option>
                     </select>
-                    <button class="btn btn-primary" id="addExpenseBtn"><i class="fa-solid fa-plus"></i> Add Expense</button>
+
+                    <button class="btn btn-primary" id="openAddTxModalBtn">
+                        <i class="fa-solid fa-plus"></i> <span>Add Entry</span>
+                    </button>
                 </div>
             </header>
 
-            <div class="insight-alert" id="insightAlert" style="display: none;">
-                <i class="fa-solid fa-lightbulb text-warning"></i>
-                <span id="insightText">You're doing great with your budget this month!</span>
+            <!-- Real-time Insights Banner -->
+            <div class="insight-alert" id="insightAlert">
+                <i class="fa-solid fa-wand-magic-sparkles text-primary"></i>
+                <span id="insightText">Loading your real-time financial insights...</span>
             </div>
 
-            <!-- Dashboard / Overview -->
+            <!-- ================= VIEW 1: OVERVIEW ================= -->
             <div class="view-section active" id="view-overview">
+                <!-- Summary KPI Cards -->
                 <div class="summary-cards">
+                    <!-- Net Balance -->
                     <div class="summary-card card">
-                        <div class="card-icon" style="background:var(--chart-1-light); color:var(--chart-1)"><i class="fa-solid fa-coins"></i></div>
+                        <div class="card-icon" style="background: rgba(124, 58, 237, 0.12); color: #7c3aed;">
+                            <i class="fa-solid fa-wallet"></i>
+                        </div>
+                        <div class="card-info">
+                            <h3>Net Balance</h3>
+                            <h2 id="netBalance">₹0.00</h2>
+                            <p class="text-sm" id="netBalanceSub">Cashflow this month</p>
+                        </div>
+                    </div>
+
+                    <!-- Total Income -->
+                    <div class="summary-card card">
+                        <div class="card-icon" style="background: rgba(16, 185, 129, 0.12); color: #10b981;">
+                            <i class="fa-solid fa-arrow-trend-up"></i>
+                        </div>
+                        <div class="card-info">
+                            <h3>Total Income</h3>
+                            <h2 id="totalIncome" style="color: #10b981;">₹0.00</h2>
+                            <p class="text-sm text-muted">Earned this month</p>
+                        </div>
+                    </div>
+
+                    <!-- Total Spent -->
+                    <div class="summary-card card">
+                        <div class="card-icon" style="background: rgba(239, 68, 68, 0.12); color: #ef4444;">
+                            <i class="fa-solid fa-arrow-trend-down"></i>
+                        </div>
                         <div class="card-info">
                             <h3>Total Spent</h3>
-                            <h2 id="totalSpent">₹0</h2>
-                            <p class="text-sm">This month</p>
+                            <h2 id="totalSpent" style="color: #ef4444;">₹0.00</h2>
+                            <p class="text-sm text-muted">Spent this month</p>
                         </div>
                     </div>
+
+                    <!-- Budget Left -->
                     <div class="summary-card card">
-                        <div class="card-icon" style="background:var(--success-light); color:var(--success)"><i class="fa-solid fa-scale-balanced"></i></div>
+                        <div class="card-icon" style="background: rgba(59, 130, 246, 0.12); color: #3b82f6;">
+                            <i class="fa-solid fa-piggy-bank"></i>
+                        </div>
                         <div class="card-info">
                             <h3>Budget Left</h3>
-                            <h2 id="budgetLeft">₹0</h2>
-                            <p class="text-sm">Of <span id="monthlyBudgetDesc">₹0</span></p>
-                        </div>
-                    </div>
-                    <div class="summary-card card">
-                        <div class="card-icon" style="background:var(--chart-3-light); color:var(--chart-3)"><i class="fa-solid fa-calendar-day"></i></div>
-                        <div class="card-info">
-                            <h3>Daily Average</h3>
-                            <h2 id="dailyAverage">₹0</h2>
-                            <p class="text-sm">Based on <span id="daysPassed">0</span> days</p>
+                            <h2 id="budgetLeft">₹0.00</h2>
+                            <p class="text-sm">Of limit <span id="monthlyBudgetDesc">₹0</span></p>
                         </div>
                     </div>
                 </div>
 
+                <!-- Quick Action Buttons -->
+                <div class="quick-actions-bar mt-3 mb-4 d-flex gap-2 flex-wrap">
+                    <button class="btn btn-sm btn-outline" id="quickAddExpenseBtn"><i class="fa-solid fa-circle-minus text-danger"></i> + Add Expense</button>
+                    <button class="btn btn-sm btn-outline" id="quickAddIncomeBtn"><i class="fa-solid fa-circle-plus text-success"></i> + Add Income</button>
+                    <button class="btn btn-sm btn-outline" id="quickAddGoalBtn"><i class="fa-solid fa-bullseye text-primary"></i> + New Goal</button>
+                    <button class="btn btn-sm btn-outline" id="quickExportBtn"><i class="fa-solid fa-file-export"></i> Export Report</button>
+                    <button class="btn btn-sm btn-ghost" id="loadSampleDataBtn" title="Prepopulate realistic sample transactions and goals"><i class="fa-solid fa-flask"></i> Load Demo Data</button>
+                </div>
+
+                <!-- Dashboard Charts & Recent Tx -->
                 <div class="dashboard-grid">
+                    <!-- Category Doughnut -->
                     <div class="card chart-card">
-                        <div class="card-header">
+                        <div class="card-header flex-between">
                             <h3>Expenses by Category</h3>
+                            <span class="text-xs text-muted" id="categoryChartMonth">This Month</span>
                         </div>
-                        <div class="chart-container">
+                        <div class="chart-container" style="position: relative; min-height: 280px;">
                             <canvas id="categoryPieChart"></canvas>
                         </div>
                     </div>
-                    
-                    <div class="card recent-card">
+
+                    <!-- Income vs Expense Bar Chart -->
+                    <div class="card chart-card">
                         <div class="card-header flex-between">
-                            <h3>Recent Transactions</h3>
-                            <div class="table-actions">
-                                <input type="text" id="searchTransactions" placeholder="Search..." class="search-input">
-                                <button class="btn-icon" id="exportBtn" title="Export Data"><i class="fa-solid fa-download"></i></button>
-                            </div>
+                            <h3>Cashflow Comparison</h3>
+                            <span class="text-xs text-muted">Income vs Expense</span>
                         </div>
+                        <div class="chart-container" style="position: relative; min-height: 280px;">
+                            <canvas id="cashflowBarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Transactions Card -->
+                <div class="card recent-card mt-4">
+                    <div class="card-header flex-between flex-wrap gap-2">
+                        <h3>Recent Transactions</h3>
+                        <div class="table-actions d-flex gap-2 align-items-center">
+                            <input type="text" id="searchTransactions" placeholder="Search transactions..." class="search-input">
+                            <select id="filterType" class="form-select form-select-sm">
+                                <option value="all">All Types</option>
+                                <option value="expense">Expenses Only</option>
+                                <option value="income">Income Only</option>
+                            </select>
+                            <button class="btn btn-sm btn-outline" id="exportBtn" title="Export Transactions"><i class="fa-solid fa-download"></i> Export</button>
+                        </div>
+                    </div>
+                    
+                    <div class="tx-list-container table-responsive">
+                        <table class="tx-table" id="transactionsTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Category</th>
+                                    <th>Description</th>
+                                    <th>Notes / Tags</th>
+                                    <th class="text-right">Amount</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="txTableBody"></tbody>
+                        </table>
                         
-                        <div class="tx-list-container">
-                            <table class="tx-table" id="transactionsTable">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Category</th>
-                                        <th>Description</th>
-                                        <th class="text-right">Amount</th>
-                                        <th class="text-center">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="txTableBody"></tbody>
-                            </table>
-                            <div id="noDataMsg" class="no-data text-center p-4" style="display:none;">
-                                <img src="https://cdn-icons-png.flaticon.com/512/7486/7486776.png" alt="No Data" width="80" style="opacity:0.5; margin-bottom:1rem;">
-                                <p class="text-muted">No expenses recorded yet.</p>
+                        <div id="noDataMsg" class="no-data text-center p-5" style="display:none;">
+                            <i class="fa-solid fa-receipt fa-3x text-muted mb-3" style="opacity: 0.3;"></i>
+                            <h4>No Transactions Found</h4>
+                            <p class="text-muted">You haven't logged any transactions yet or none match your search.</p>
+                            <div class="mt-3">
+                                <button class="btn btn-primary btn-sm me-2" onclick="openTransactionModal('expense')"><i class="fa-solid fa-plus"></i> Add Expense</button>
+                                <button class="btn btn-outline btn-sm" id="loadSampleDataEmptyBtn"><i class="fa-solid fa-magic"></i> Load Sample Data</button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Analytics -->
-            <div class="view-section" id="view-analytics">
-                <h2 class="view-title">Analytics</h2>
-                <div class="filter-bar">
-                    <select id="timeFilter" class="form-select">
-                        <option value="this_month">This Month</option>
-                        <option value="last_month">Last Month</option>
-                        <option value="3_months">Last 3 Months</option>
-                        <option value="6_months">Last 6 Months</option>
-                        <option value="1_year">1 Year</option>
-                    </select>
+            <!-- ================= VIEW 2: TRANSACTIONS (FULL LIST) ================= -->
+            <div class="view-section" id="view-transactions">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+                    <div>
+                        <h2 class="view-title mb-0">All Transactions</h2>
+                        <p class="text-muted text-sm">Full searchable history with real-time sync</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" onclick="openTransactionModal('expense')"><i class="fa-solid fa-plus"></i> Add Transaction</button>
+                    </div>
                 </div>
+
+                <div class="card p-3 mb-4">
+                    <div class="row g-2 align-items-center flex-wrap d-flex gap-2">
+                        <div class="flex-grow-1" style="min-width: 220px;">
+                            <input type="text" id="fullTxSearch" placeholder="Search by description or note..." class="form-input">
+                        </div>
+                        <div style="min-width: 140px;">
+                            <select id="fullTxCategoryFilter" class="form-select">
+                                <option value="all">All Categories</option>
+                            </select>
+                        </div>
+                        <div style="min-width: 130px;">
+                            <select id="fullTxTypeFilter" class="form-select">
+                                <option value="all">All Types</option>
+                                <option value="expense">Expense</option>
+                                <option value="income">Income</option>
+                            </select>
+                        </div>
+                        <div style="min-width: 140px;">
+                            <select id="fullTxDateFilter" class="form-select">
+                                <option value="all">All Time</option>
+                                <option value="this_month">This Month</option>
+                                <option value="last_month">Last Month</option>
+                                <option value="this_year">This Year</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="table-responsive">
+                        <table class="tx-table" id="fullTxTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Category</th>
+                                    <th>Description</th>
+                                    <th>Split / Recurring</th>
+                                    <th class="text-right">Amount</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fullTxTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW 3: ANALYTICS ================= -->
+            <div class="view-section" id="view-analytics">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                    <div>
+                        <h2 class="view-title mb-0">Financial Analytics</h2>
+                        <p class="text-muted text-sm">Detailed visual breakdown of your financial trends</p>
+                    </div>
+                    <div class="filter-bar">
+                        <select id="timeFilter" class="form-select">
+                            <option value="this_month">This Month</option>
+                            <option value="last_month">Last Month</option>
+                            <option value="3_months">Last 3 Months</option>
+                            <option value="6_months">Last 6 Months</option>
+                            <option value="1_year">Last 1 Year</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="analytics-grid">
                     <div class="card chart-card full-width">
-                        <div class="card-header"><h3>Monthly Trend</h3></div>
-                        <div class="chart-container">
+                        <div class="card-header flex-between">
+                            <h3>Monthly Trend (Income vs Spending)</h3>
+                        </div>
+                        <div class="chart-container" style="position: relative; min-height: 320px;">
                             <canvas id="trendLineChart"></canvas>
                         </div>
                     </div>
+
                     <div class="card chart-card">
-                        <div class="card-header"><h3>Category Breakup</h3></div>
-                        <div class="chart-container">
+                        <div class="card-header"><h3>Category Spending Distribution</h3></div>
+                        <div class="chart-container" style="position: relative; min-height: 280px;">
                             <canvas id="analyticsPieChart"></canvas>
                         </div>
                     </div>
-                     <div class="card chart-card">
-                        <div class="card-header"><h3>Spending Distribution</h3></div>
-                        <div class="chart-container">
+
+                    <div class="card chart-card">
+                        <div class="card-header"><h3>Top Expense Categories</h3></div>
+                        <div class="chart-container" style="position: relative; min-height: 280px;">
                             <canvas id="analyticsBarChart"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Goals -->
+            <!-- ================= VIEW 4: GOALS & SAVINGS ================= -->
             <div class="view-section" id="view-goals">
-                <h2 class="view-title">Goals & Budgets</h2>
-                <div class="card goal-card">
-                    <form id="goalsForm">
-                        <div class="form-group">
-                            <label>Monthly Budget Limit</label>
-                            <input type="number" id="inputMonthlyBudget" class="form-input" required min="0">
-                        </div>
-                        <div class="form-group">
-                            <label>Monthly Savings Target</label>
-                            <input type="number" id="inputSavingsTarget" class="form-input" required min="0">
-                        </div>
-                        <button type="submit" class="btn btn-primary">Save Targets</button>
-                    </form>
-                </div>
-                
-                <div class="progress-section mt-4 card">
-                    <h3>Budget Progress</h3>
-                    <div class="progress-info flex-between mb-2 mt-3">
-                        <span id="progSpent">Spent: ₹0</span>
-                        <span id="progLimit">Limit: ₹0</span>
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                    <div>
+                        <h2 class="view-title mb-0">Savings Goals</h2>
+                        <p class="text-muted text-sm">Track milestones, deposit funds, and reach your financial dreams</p>
                     </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar-fill" id="budgetProgressBar"></div>
+                    <button class="btn btn-primary" id="openAddGoalModalBtn">
+                        <i class="fa-solid fa-plus"></i> New Savings Goal
+                    </button>
+                </div>
+
+                <div class="goals-grid" id="goalsCardsContainer">
+                    <!-- Dynamically populated goal cards -->
+                </div>
+
+                <div id="noGoalsMsg" class="card text-center p-5 mt-3" style="display: none;">
+                    <i class="fa-solid fa-bullseye fa-3x text-muted mb-3" style="opacity: 0.3;"></i>
+                    <h4>No Savings Goals Created Yet</h4>
+                    <p class="text-muted">Create a target like Emergency Fund, Vacation, or New Laptop to stay motivated!</p>
+                    <div class="mt-3">
+                        <button class="btn btn-primary btn-sm" onclick="openGoalModal()"><i class="fa-solid fa-plus"></i> Create Your First Goal</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Split -->
+            <!-- ================= VIEW 5: SUBSCRIPTIONS & RECURRING ================= -->
+            <div class="view-section" id="view-recurring">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                    <div>
+                        <h2 class="view-title mb-0">Subscriptions & Recurring Bills</h2>
+                        <p class="text-muted text-sm">Automated regular payments and monthly commitments</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openTransactionModal('expense', true)">
+                        <i class="fa-solid fa-plus"></i> Add Subscription
+                    </button>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <h3 class="mb-1" id="recurringMonthlyTotal">₹0.00 / month</h3>
+                                <p class="text-muted text-sm mb-0">Total estimated monthly recurring commitments</p>
+                            </div>
+                            <span class="badge badge-primary"><span id="recurringCount">0</span> active subscriptions</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recurring-list" id="recurringList">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- ================= VIEW 6: SPLIT BILLS ================= -->
             <div class="view-section" id="view-split">
-                 <h2 class="view-title">Split Bills</h2>
-                 <p class="text-muted mb-4">Add expenses tagged as split to see them here.</p>
-                 <div class="split-list" id="splitList"></div>
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                    <div>
+                        <h2 class="view-title mb-0">Split Bills Tracker</h2>
+                        <p class="text-muted text-sm">Track shared expenses with friends and roomates</p>
+                    </div>
+                </div>
+                <div class="split-list" id="splitList"></div>
+            </div>
+
+            <!-- ================= VIEW 7: BUDGETS & LIMITS ================= -->
+            <div class="view-section" id="view-budget">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                    <div>
+                        <h2 class="view-title mb-0">Budget Management</h2>
+                        <p class="text-muted text-sm">Set monthly limits to keep your finances in check</p>
+                    </div>
+                </div>
+
+                <div class="card p-4 mb-4">
+                    <form id="goalsForm">
+                        <div class="form-group mb-3">
+                            <label class="fw-bold">Monthly Spending Budget</label>
+                            <input type="number" id="inputMonthlyBudget" class="form-input" required min="0" placeholder="e.g. 50000">
+                            <small class="text-muted">We will alert you when you approach or exceed this budget.</small>
+                        </div>
+                        <div class="form-group mb-4">
+                            <label class="fw-bold">Monthly Savings Target</label>
+                            <input type="number" id="inputSavingsTarget" class="form-input" required min="0" placeholder="e.g. 15000">
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="saveTargetsBtn">Save Budget Targets</button>
+                    </form>
+                </div>
+
+                <div class="progress-section card p-4">
+                    <h3>Budget Utilization</h3>
+                    <div class="progress-info flex-between mb-2 mt-3">
+                        <span id="progSpent" class="fw-bold">Spent: ₹0</span>
+                        <span id="progLimit" class="text-muted">Limit: ₹0</span>
+                    </div>
+                    <div class="progress-bar-container" style="height: 14px; background: var(--bg-subtle); border-radius: 999px; overflow: hidden;">
+                        <div class="progress-bar-fill" id="budgetProgressBar" style="width: 0%; height: 100%; transition: width 0.5s ease;"></div>
+                    </div>
+                    <p class="text-xs text-muted mt-2" id="budgetStatusText">0% of monthly budget utilized.</p>
+                </div>
             </div>
         </main>
     </div>
 
-    <!-- Add/Edit Expense Modal -->
+    <!-- ================= MODALS ================= -->
+
+    <!-- Add/Edit Transaction Modal -->
     <div class="modal-overlay" id="expenseModal">
-        <div class="modal card">
+        <div class="modal card modal-md">
             <div class="modal-header">
-                <h3 id="modalTitle">Add Expense</h3>
+                <h3 id="modalTxTitle">Add Transaction</h3>
                 <button class="close-btn" id="closeExpenseModal"><i class="fa-solid fa-xmark"></i></button>
             </div>
+
+            <!-- Transaction Type Segmented Toggle -->
+            <div class="type-toggle-bar mt-2 mb-3">
+                <button type="button" class="type-btn active" id="typeExpenseBtn" onclick="switchTxType('expense')">
+                    <i class="fa-solid fa-circle-minus text-danger"></i> Expense
+                </button>
+                <button type="button" class="type-btn" id="typeIncomeBtn" onclick="switchTxType('income')">
+                    <i class="fa-solid fa-circle-plus text-success"></i> Income
+                </button>
+            </div>
+
             <form id="expenseForm">
-                <input type="hidden" id="expId">
-                <div class="form-group">
-                    <label>Amount</label>
-                    <div class="input-icon-wrapper">
-                        <span class="currency-symbol prefix" id="modalCurrency">₹</span>
-                        <input type="number" id="expAmount" step="0.01" required>
+                <input type="hidden" id="editingTxId">
+                <input type="hidden" id="txType" value="expense">
+
+                <div class="form-row d-flex gap-3">
+                    <div class="form-group flex-1">
+                        <label>Amount (<span class="curr-symbol">₹</span>)</label>
+                        <input type="number" id="expAmount" step="0.01" min="0.01" placeholder="0.00" class="form-input" required>
+                    </div>
+                    <div class="form-group flex-1">
+                        <label>Date</label>
+                        <input type="date" id="expDate" class="form-input" required>
                     </div>
                 </div>
-                <div class="form-group">
+
+                <div class="form-group mt-3">
                     <label>Category</label>
-                    <select id="expCategory" required class="form-select">
-                        <option value="Food">🍽️ Food & Dining</option>
-                        <option value="Travel">🚗 Travel & Transport</option>
-                        <option value="Shopping">🛍️ Shopping</option>
-                        <option value="Housing">🏠 Housing & Rent</option>
-                        <option value="Bills">🧾 Utilities & Bills</option>
-                        <option value="Entertainment">🎬 Entertainment</option>
-                        <option value="Health">⚕️ Healthcare</option>
-                        <option value="Other">📦 Other</option>
+                    <select id="expCategory" class="form-select" required>
+                        <!-- Dynamic options loaded via JS -->
                     </select>
                 </div>
-                <div class="form-group">
-                    <label>Date</label>
-                    <input type="date" id="expDate" required>
-                </div>
-                <div class="form-group">
+
+                <div class="form-group mt-3">
                     <label>Description</label>
-                    <input type="text" id="expDescription" placeholder="What was this for?" required>
+                    <input type="text" id="expDescription" placeholder="e.g. Grocery store, Salary, Coffee" class="form-input" required>
                 </div>
-                
+
                 <div class="form-check-group flex-between mt-3 mb-3">
-                    <label class="toggle-label">
+                    <label class="toggle-label d-flex align-items-center gap-2">
                         <input type="checkbox" id="expRecurring">
                         <span>Recurring Monthly</span>
                     </label>
-                    <label class="toggle-label">
+                    <label class="toggle-label d-flex align-items-center gap-2" id="splitBillToggleWrapper">
                         <input type="checkbox" id="expSplit">
                         <span>Split Bill</span>
                     </label>
                 </div>
-                
+
                 <div class="form-group" id="splitGroup" style="display:none;">
                     <label>Split With (comma separated names)</label>
-                    <input type="text" id="expSplitWith" placeholder="Alice, Bob">
+                    <input type="text" id="expSplitWith" placeholder="Rahul, Priya, Amit" class="form-input">
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-block">Save Expense</button>
+                <div class="form-group mt-3">
+                    <label>Notes / Receipt Link (optional)</label>
+                    <input type="text" id="expReceiptUrl" placeholder="https://... or Invoice #1234" class="form-input">
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block btn-lg mt-4" id="saveTxBtn">
+                    <span>Save Transaction</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add/Edit Goal Modal -->
+    <div class="modal-overlay" id="goalModal">
+        <div class="modal card modal-md">
+            <div class="modal-header">
+                <h3 id="goalModalTitle">New Savings Goal</h3>
+                <button class="close-btn" onclick="closeGoalModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="saveGoalForm" class="mt-3">
+                <input type="hidden" id="editingGoalId">
+                
+                <div class="form-group mb-3">
+                    <label>Goal Name</label>
+                    <input type="text" id="goalName" placeholder="e.g. Vacation to Goa, Emergency Fund" class="form-input" required>
+                </div>
+
+                <div class="form-row d-flex gap-3 mb-3">
+                    <div class="form-group flex-1">
+                        <label>Target Amount (<span class="curr-symbol">₹</span>)</label>
+                        <input type="number" id="goalTarget" step="1" min="1" placeholder="50000" class="form-input" required>
+                    </div>
+                    <div class="form-group flex-1">
+                        <label>Current Saved (<span class="curr-symbol">₹</span>)</label>
+                        <input type="number" id="goalCurrent" step="1" min="0" placeholder="10000" class="form-input" required>
+                    </div>
+                </div>
+
+                <div class="form-row d-flex gap-3 mb-3">
+                    <div class="form-group flex-1">
+                        <label>Target Deadline</label>
+                        <input type="date" id="goalDeadline" class="form-input">
+                    </div>
+                    <div class="form-group flex-1">
+                        <label>Color Theme</label>
+                        <select id="goalColor" class="form-select">
+                            <option value="#7c3aed">Purple</option>
+                            <option value="#10b981">Emerald Green</option>
+                            <option value="#3b82f6">Ocean Blue</option>
+                            <option value="#f59e0b">Amber Gold</option>
+                            <option value="#ec4899">Rose Pink</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block btn-lg mt-4">Save Goal</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Deposit to Goal Modal -->
+    <div class="modal-overlay" id="depositModal">
+        <div class="modal card modal-sm">
+            <div class="modal-header">
+                <h3>Deposit to Goal</h3>
+                <button class="close-btn" onclick="closeDepositModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="depositForm" class="mt-3">
+                <input type="hidden" id="depositGoalId">
+                <div class="form-group mb-3">
+                    <label id="depositGoalNameLabel">Goal: Loading...</label>
+                    <input type="number" id="depositAmount" step="1" min="1" placeholder="Amount to add" class="form-input" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Confirm Deposit</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Profile Settings Modal -->
+    <div class="modal-overlay" id="profileModal">
+        <div class="modal card modal-md">
+            <div class="modal-header">
+                <h3>Profile & Preferences</h3>
+                <button class="close-btn" onclick="closeProfileModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="profileForm" class="mt-3">
+                <div class="form-group mb-3">
+                    <label>Full Name</label>
+                    <input type="text" id="profFullName" class="form-input" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label>Preferred Currency</label>
+                    <select id="profCurrency" class="form-select">
+                        <option value="₹">₹ - Indian Rupee (INR)</option>
+                        <option value="$">$ - US Dollar (USD)</option>
+                        <option value="€">€ - Euro (EUR)</option>
+                        <option value="£">£ - British Pound (GBP)</option>
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label>Monthly Budget Limit</label>
+                    <input type="number" id="profBudget" class="form-input" min="0">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block btn-lg mt-4">Update Profile</button>
             </form>
         </div>
     </div>
@@ -265,17 +615,19 @@
     <div class="modal-overlay" id="exportModal">
         <div class="modal card modal-sm">
             <div class="modal-header">
-                <h3>Export Data</h3>
+                <h3>Export Financial Data</h3>
                 <button class="close-btn" onclick="closeExportModal()"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="export-options mt-3">
                 <button class="btn btn-outline btn-block mb-2 text-left" onclick="exportData('csv')"><i class="fa-solid fa-file-csv"></i> Export as CSV</button>
-                <button class="btn btn-outline btn-block mb-2 text-left" onclick="exportData('excel')"><i class="fa-solid fa-file-excel"></i> Export as Excel</button>
-                <button class="btn btn-outline btn-block text-left" onclick="exportData('pdf')"><i class="fa-solid fa-file-pdf"></i> Export as PDF</button>
+                <button class="btn btn-outline btn-block mb-2 text-left" onclick="exportData('excel')"><i class="fa-solid fa-file-excel"></i> Export as Excel (XLSX)</button>
+                <button class="btn btn-outline btn-block text-left" onclick="exportData('pdf')"><i class="fa-solid fa-file-pdf"></i> Export as PDF Report</button>
             </div>
         </div>
     </div>
 
+    <!-- App Configuration & Main Script -->
+    <script src="js/supabase-config.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>
