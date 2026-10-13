@@ -164,47 +164,56 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
 
                 if (error) {
+                    const msg = (error.message || '').toLowerCase();
+                    if (msg.includes('already registered') || msg.includes('already exists')) {
+                        showToast('Account already exists! Logging you in...', 'info');
+                        const { error: signInErr } = await supabase.auth.signInWithPassword({
+                            email: email,
+                            password: password
+                        });
+                        if (!signInErr) {
+                            setTimeout(() => { window.location.href = 'dashboard.html'; }, 500);
+                            return;
+                        } else {
+                            showToast('User already registered. Please go to Log In.', 'error');
+                            setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+                            return;
+                        }
+                    }
                     showToast(error.message || 'Signup failed', 'error');
                     btn.classList.remove('btn-loading');
                     btn.disabled = false;
                     return;
                 }
 
-                // Create profile record
-                if (data.user) {
+                // Sign in to establish session
+                showToast('Account created! Welcome to SpendSmart.', 'success');
+                const { error: loginErr } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (!loginErr) {
+                    // Update profile now that user is authenticated
                     await supabase.from('profiles').upsert({
                         id: data.user.id,
                         full_name: name,
                         currency: '₹',
-                        monthly_budget: 0,
+                        monthly_budget: 35000,
                         theme: 'light'
-                    });
-                }
+                    }).catch(console.warn);
 
-                // Automatically sign in if session was not returned immediately
-                if (data.session) {
-                    showToast('Account created! Redirecting to dashboard...', 'success');
                     setTimeout(() => {
                         window.location.href = 'dashboard.html';
-                    }, 600);
+                    }, 500);
                 } else {
-                    showToast('Account created! Logging you in...', 'success');
-                    const { error: loginErr } = await supabase.auth.signInWithPassword({
-                        email: email,
-                        password: password
-                    });
-                    if (!loginErr) {
-                        setTimeout(() => {
-                            window.location.href = 'dashboard.html';
-                        }, 600);
-                    } else {
-                        setTimeout(() => {
-                            window.location.href = 'login.html';
-                        }, 1200);
-                    }
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 800);
                 }
             } catch (err) {
-                showToast('Something went wrong. Please try again.', 'error');
+                console.error('Signup error:', err);
+                showToast(err.message || 'Something went wrong. Please try logging in.', 'error');
                 btn.classList.remove('btn-loading');
                 btn.disabled = false;
             }
