@@ -66,17 +66,24 @@ function pulseSyncIndicator() {
 // AUTHENTICATION & INITIALIZATION
 // ===================================================================
 
-// Helper to get initialized Supabase Client
+// Global Supabase Client instance
+let sb = null;
 function getSb() {
-    if (window.supabaseClient) return window.supabaseClient;
+    if (sb) return sb;
+    if (window.supabaseClient) {
+        sb = window.supabaseClient;
+        return sb;
+    }
     if (typeof supabase !== 'undefined' && supabase && typeof supabase.createClient === 'function') {
         const url = typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : 'https://fivnpfqsawuhdrawvaiu.supabase.co';
         const key = typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdm5wZnFzYXd1aGRyYXd2YWl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4OTExMzYsImV4cCI6MjEwNzQ2NzEzNn0.JvEvE3ExhpeWWXoG9aTebYf2ngtWLXJZVjVLXSenQ08';
         window.supabaseClient = supabase.createClient(url, key);
-        return window.supabaseClient;
+        sb = window.supabaseClient;
+        return sb;
     }
     return null;
 }
+sb = getSb();
 
 document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
@@ -1677,10 +1684,11 @@ async function loadSampleData() {
     ];
 
     try {
-        if (getSb() && currentUser.id !== 'local-user') {
-            await sb.from('transactions').insert(sampleTransactions);
-            await sb.from('goals').insert(sampleGoals);
-            await sb.from('profiles').update({ monthly_budget: 45000 }).eq('id', currentUser.id);
+        const client = getSb();
+        if (client && currentUser?.id !== 'local-user') {
+            await client.from('transactions').insert(sampleTransactions);
+            await client.from('goals').insert(sampleGoals);
+            await client.from('profiles').update({ monthly_budget: 45000 }).eq('id', currentUser.id);
             currentProfile.monthly_budget = 45000;
             
             await loadTransactions();
